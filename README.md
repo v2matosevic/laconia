@@ -63,6 +63,51 @@ node ~/.claude/skills/laconia/bin/laconia-lint.mjs --file draft.md
 
 Or just ask: `/laconia`.
 
+## Which agents this covers
+
+One repo, one voice contract, one linter, one ledger. `install.mjs` wires it into
+whatever is on the machine and resolves absolute paths for that machine, which is
+what lets the same checkout serve Windows and macOS.
+
+```bash
+node install.mjs            # install or repair, idempotent
+node install.mjs --check    # report what is wired, change nothing
+node install.mjs --uninstall
+```
+
+Claude Code needs no install step. This directory sitting at
+`~/.claude/skills/laconia` is the install, and it loads as `laconia@skills-dir`.
+
+Codex gets the same treatment through its own surfaces. The voice contract goes
+into `~/.codex/AGENTS.md` as a managed block between markers, so re-running the
+installer updates it without touching anything else in that file. The Stop gate
+goes into `~/.codex/hooks.json`. Codex's `Stop` hook has the same
+block-and-rewrite contract as Claude Code's: `decision: "block"` with a reason
+turns into a continuation prompt. Verified end to end, first attempt blocked on
+an em dash and the second came back clean.
+
+Two Codex caveats. Codex will not run a new hook until you trust it, so open
+Codex, run `/hooks`, and trust the Laconia entry once. And Codex's web search is
+a hosted tool that hooks cannot intercept, so there the browser-first rule is
+carried by instructions only, not enforced.
+
+Not covered, deliberately: Claude Code subagents run their own system prompt;
+Athena's in-house agent is a separate system where ADR-050 already covers this;
+opencode is installed but unwired.
+
+## Second machine
+
+The repo is the unit. On the MacBook:
+
+```bash
+git clone <remote> ~/.claude/skills/laconia
+cd ~/.claude/skills/laconia && node install.mjs
+```
+
+`install.mjs` writes macOS paths into the Codex config, so nothing needs editing
+by hand. Updating later is `git pull && node install.mjs`. The ledger stays
+per-machine on purpose, since it measures that machine's sessions.
+
 ## Tuning and off switches
 
 Everything lives in `laconia.config.json` and is re-read every turn, so no

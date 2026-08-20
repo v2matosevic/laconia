@@ -23,6 +23,17 @@ const STATE_DIR = join(homedir(), '.claude', 'laconia');
 
 const ok = () => process.exit(0);
 
+/**
+ * Which CLI is calling. Passed explicitly on the command line by whoever wired
+ * the hook, because the two payloads are near-identical: Codex adds `model` and
+ * `turn_id`, Claude Code adds `background_tasks`, and neither is worth guessing
+ * from when one flag settles it.
+ */
+const argAgent = (() => {
+  const i = process.argv.indexOf('--agent');
+  return i > 0 ? process.argv[i + 1] : null;
+})();
+
 // ------------------------------------------------------------------ input
 
 function readStdin() {
@@ -138,6 +149,7 @@ if (cfg.ledger?.enabled !== false) {
   try {
     appendFileSync(join(STATE_DIR, 'ledger.jsonl'), JSON.stringify({
       ts: new Date().toISOString(),
+      agent: argAgent || (input.model ? 'codex' : 'claude'),
       session: sid,
       cwd: input.cwd || '',
       words: result.words,

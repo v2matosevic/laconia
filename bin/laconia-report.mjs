@@ -80,6 +80,19 @@ line('bold-headed bullets', pct(hit('inline-header-bullet')), BASELINE.bulletPct
 
 console.log(`\n  gate fired on ${blocked} of ${n} replies (${pct(blocked).toFixed(1)}%)`);
 
+const agents = {};
+for (const r of rows) (agents[r.agent || 'unknown'] ||= []).push(r);
+if (Object.keys(agents).length > 1) {
+  console.log('\n  by agent:');
+  for (const [a, rs] of Object.entries(agents).sort((x, y) => y[1].length - x[1].length)) {
+    const b = rs.filter((r) => r.blocked).length;
+    console.log(`    ${a.padEnd(10)} ${String(rs.length).padStart(5)} replies   ` +
+      `median ${String(med(rs.map((r) => r.words))).padStart(4)} words   ` +
+      `mean score ${mean(rs.map((r) => r.score)).toFixed(1).padStart(5)}   ` +
+      `blocked ${((100 * b) / rs.length).toFixed(0)}%`);
+  }
+}
+
 const counts = {};
 for (const r of rows) for (const [k, v] of Object.entries(r.counts || {})) counts[k] = (counts[k] || 0) + (v > 0 ? 1 : 0);
 const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
