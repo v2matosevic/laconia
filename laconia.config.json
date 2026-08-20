@@ -1,0 +1,34 @@
+{
+  "$comment": "Laconia settings. Edit freely; the hooks re-read this every turn, no restart needed.",
+
+  "mode": "block",
+  "$mode": "block = reject a violating reply and rewrite it before Marko sees it. advisory = log only. off = disabled.",
+
+  "blockRules": ["em-dash", "inline-header-bullet", "emoji"],
+  "$blockRules": "Only mechanically unambiguous rules belong here. Judgment rules (length, bold-density, altitude) stay advisory and are handled by the output style.",
+
+  "circuitBreaker": {
+    "maxBlocksPerSession": 5,
+    "$comment": "After this many blocks in one session, Laconia downgrades itself to advisory for the rest of the session and says so once. Stops a bad rule turning into a loop of nagging."
+  },
+
+  "lint": {
+    "wordBudget": 150,
+    "wordBudgetDepth": 600,
+    "maxBoldSpans": 2,
+    "boldPer100Words": 1.2,
+    "headerFreeUnder": 400
+  },
+
+  "browserFirst": {
+    "enabled": true,
+    "denyWebFetch": true,
+    "denyWebSearch": true,
+    "$comment": "Marko has asked for browser-based research six separate times (25 Jul, 3 Aug, 4 Aug x2, 20 Aug x2), so it gets denied rather than discouraged. WebFetch returns another model's summary of a stripped page and fails quietly. His stated reason for WebSearch on 20 Aug was new: sites reject the fetcher outright, so only a real browser loads a complete page. Search inside the browser instead. A duplicate deny also lives in ~/.claude/settings.json (installed by another agent) as a floor that survives disabling this plugin."
+  },
+
+  "ledger": {
+    "enabled": true,
+    "$comment": "One JSONL line per turn-ending reply, at ~/.claude/laconia/ledger.jsonl. This is what /laconia reports on."
+  }
+}

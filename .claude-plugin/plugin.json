@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "laconia",
+  "displayName": "Laconia",
+  "version": "1.0.0",
+  "description": "Makes Claude Code write like a person: an always-on voice contract, a deterministic slop linter, and a Stop gate that rewrites a violating reply before you read it.",
+  "author": {
+    "name": "Version2",
+    "email": "matosevic.markom@gmail.com"
+  },
+  "keywords": ["writing", "output-style", "voice", "lint", "hooks"],
+  "outputStyles": "./output-styles/",
+  "hooks": "./hooks/hooks.json"
+}

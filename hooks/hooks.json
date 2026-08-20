@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/stop-gate.mjs\"",
+            "timeout": 15,
+            "statusMessage": "Laconia: checking the reply"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "WebFetch|WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/browser-first.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Laconia: browser-first check"
+          }
+        ]
+      }
+    ]
+  }
+}
