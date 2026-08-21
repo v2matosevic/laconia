@@ -5,7 +5,6 @@
 **Makes your coding agent write like a person.**
 
 [![npm](https://img.shields.io/npm/v/laconia?color=%23c42b31)](https://www.npmjs.com/package/laconia)
-[![CI](https://github.com/v2matosevic/laconia/actions/workflows/ci.yml/badge.svg)](https://github.com/v2matosevic/laconia/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 Works with **Claude Code** and **Codex**.
@@ -246,7 +245,11 @@ technical punctuation. A rule that has not been replayed is a guess.
 npm test
 ```
 
-This README passes its own linter. So does the skill file.
+27 tests. CI runs them on Linux, macOS and Windows across Node 18, 20 and 22,
+and asserts that the docs pass their own linter, because a tool that cannot keep
+its own README clean has no business shipping.
+
+This README passes its own linter. So does the skill file and the voice contract.
 
 ## License
 
