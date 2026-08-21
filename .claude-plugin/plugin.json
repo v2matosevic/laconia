@@ -11,7 +11,5 @@
   "homepage": "https://github.com/v2matosevic/laconia",
   "repository": "https://github.com/v2matosevic/laconia",
   "license": "MIT",
-  "keywords": ["writing", "output-style", "voice", "lint", "hooks", "ai-slop"],
-  "outputStyles": "./output-styles/",
-  "hooks": "./hooks/hooks.json"
+  "keywords": ["writing", "output-style", "voice", "lint", "hooks", "ai-slop"]
 }
