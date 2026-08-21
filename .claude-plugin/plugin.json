@@ -1,14 +1,17 @@
 {
-  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "laconia",
   "displayName": "Laconia",
   "version": "1.0.0",
-  "description": "Makes Claude Code write like a person: an always-on voice contract, a deterministic slop linter, and a Stop gate that rewrites a violating reply before you read it.",
+  "description": "Makes your coding agent write like a person: an always-on voice contract, a deterministic slop linter, and a Stop hook that rewrites a violating reply before you read it.",
   "author": {
     "name": "Version2",
-    "email": "matosevic.markom@gmail.com"
+    "url": "https://github.com/v2matosevic"
   },
-  "keywords": ["writing", "output-style", "voice", "lint", "hooks"],
+  "homepage": "https://github.com/v2matosevic/laconia",
+  "repository": "https://github.com/v2matosevic/laconia",
+  "license": "MIT",
+  "keywords": ["writing", "output-style", "voice", "lint", "hooks", "ai-slop"],
   "outputStyles": "./output-styles/",
   "hooks": "./hooks/hooks.json"
 }

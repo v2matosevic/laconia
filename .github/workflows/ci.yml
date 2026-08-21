@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test ${{ matrix.os }} node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['18', '20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+
+  dogfood:
+    name: docs pass their own linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # If the tool cannot keep its own docs clean, it has no business shipping.
+      - run: node bin/laconia.mjs lint README.md
+      - run: node bin/laconia.mjs lint SKILL.md
+      - run: node bin/laconia.mjs lint output-styles/laconia.md
+
+  install:
+    name: install is idempotent on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: install twice, then check
+        shell: bash
+        run: |
+          node bin/laconia.mjs install --quiet
+          node bin/laconia.mjs install --quiet
+          node bin/laconia.mjs check
+      - name: the gate blocks an em dash
+        shell: bash
+        run: |
+          echo '{"session_id":"ci","cwd":".","stop_hook_active":false,"last_assistant_message":"Fixed — and deployed."}' \
+            | node scripts/stop-gate.mjs > out.json
+          grep -q '"decision":"block"' out.json
+      - name: a clean reply passes silently
+        shell: bash
+        run: |
+          echo '{"session_id":"ci2","cwd":".","stop_hook_active":false,"last_assistant_message":"Deployed. Nothing to do."}' \
+            | node scripts/stop-gate.mjs > clean.json
+          test ! -s clean.json
+      - name: uninstall leaves nothing wired
+        shell: bash
+        run: node bin/laconia.mjs uninstall --quiet

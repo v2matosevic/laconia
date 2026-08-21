@@ -1,86 +1,77 @@
 #!/usr/bin/env node
 /**
- * PreToolUse gate on WebFetch and WebSearch.
+ * PreToolUse gate on WebFetch and WebSearch. Off by default.
  *
- * Marko has asked for browser-based research six separate times (25 Jul,
- * 3 Aug, 4 Aug x2, 20 Aug x2). The rule is in his global CLAUDE.md and in a
- * memory note whose own text reads "the repeat is the finding", and it was
- * still broken in the first tool call of the session where Laconia was designed.
+ * This one is an opinion, not a writing rule, so it ships disabled. Turn it on
+ * with `browserFirst.enabled: true` in ~/.laconia/config.json if you would
+ * rather your agent drive a real browser than read a summary.
  *
- * That is the whole argument for this plugin in one rule: a reflex has to be
- * blocked, not reminded. So this denies the call instead of asking nicely.
+ * The argument: WebFetch hands back a small model's summary of a page stripped
+ * to markdown. It loses code blocks, tables and anything JavaScript rendered,
+ * and it fails quietly, returning fluent prose with none of the data in it. A
+ * browser (Playwright MCP, Claude in Chrome) loads the actual page.
  *
- * His stated reason on 20 Aug was new and covers search as well as fetch: sites
- * reject the fetcher outright, so only a real browser loads a complete page.
- * Searching is done in the browser too.
+ * Claude Code only. Codex's web search is a hosted tool that hooks cannot reach.
  */
 
 import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { loadConfig } from '../lib/config.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const ok = () => process.exit(0);
+const exitQuietly = () => process.exit(0);
 
 let input;
 try {
   input = JSON.parse(readFileSync(0, 'utf8') || '{}');
 } catch {
-  ok();
+  exitQuietly();
 }
 
-let cfg = {};
+let cfg;
 try {
-  cfg = JSON.parse(readFileSync(join(ROOT, 'laconia.config.json'), 'utf8'));
-} catch { /* defaults */ }
+  cfg = loadConfig();
+} catch {
+  exitQuietly();
+}
 
 const bf = cfg.browserFirst || {};
-if (bf.enabled === false) ok();
+if (!bf.enabled) exitQuietly();
 
 const tool = input.tool_name;
 const isFetch = tool === 'WebFetch';
 const isSearch = tool === 'WebSearch';
-if (!isFetch && !isSearch) ok();
-if (isFetch && bf.denyWebFetch === false) ok();
-if (isSearch && bf.denyWebSearch === false) ok();
+if (!isFetch && !isSearch) exitQuietly();
+if (isFetch && bf.denyWebFetch === false) exitQuietly();
+if (isSearch && bf.denyWebSearch === false) exitQuietly();
 
-const target = isFetch
-  ? (input.tool_input?.url || 'that page')
-  : JSON.stringify(input.tool_input?.query || '');
-
-const common = [
+const tail = [
   '',
-  'Playwright MCP (browser_navigate, then browser_take_screenshot with fullPage,',
-  'or browser_evaluate to pull exact strings out of the DOM) or Claude in Chrome',
-  'for anything behind his login.',
+  'Use Playwright MCP (browser_navigate, then browser_take_screenshot with',
+  'fullPage, or browser_evaluate to pull exact strings out of the DOM) or Claude',
+  'in Chrome for anything behind a login.',
   '',
-  'If no browser is reachable in this session, say that plainly rather than',
-  'answering from memory or from a summary.',
+  'If no browser is reachable in this session, say so plainly rather than',
+  'answering from a summary or from memory.',
 ];
 
-const reason = (isFetch
+const head = isFetch
   ? [
-      `Laconia: WebFetch is off. Open ${target} in a real browser instead.`,
+      `Laconia: WebFetch is off. Open ${input.tool_input?.url || 'that page'} in a real browser.`,
       '',
-      "WebFetch hands back a small model's summary of a stripped page. It loses",
-      'code blocks, tables and JS-rendered content, and it fails quietly by',
-      'returning fluent prose with none of the data in it.',
+      "WebFetch returns a small model's summary of a stripped page. It loses code",
+      'blocks, tables and JS-rendered content, and it fails quietly.',
     ]
   : [
-      `Laconia: WebSearch is off. Run that search ${target} in a real browser.`,
+      `Laconia: WebSearch is off. Run ${JSON.stringify(input.tool_input?.query || '')} in a real browser.`,
       '',
-      'Navigate to the search engine and read the results page. Marko asked for',
-      'this specifically: sites reject the fetcher outright, so a real browser is',
-      'the only thing that loads a complete page. A WebSearch summary is not',
-      'evidence and must never be quoted as the finding.',
-    ]
-).concat(common).join('\n');
+      'Navigate to the search engine and read the results page. A search summary is',
+      'not evidence and must not be quoted as the finding.',
+    ];
 
 process.stdout.write(JSON.stringify({
   hookSpecificOutput: {
     hookEventName: 'PreToolUse',
     permissionDecision: 'deny',
-    permissionDecisionReason: reason,
+    permissionDecisionReason: head.concat(tail).join('\n'),
   },
 }) + '\n');
 process.exit(0);

@@ -1,15 +1,16 @@
 {
-  "$comment": "Laconia settings. Edit freely; the hooks re-read this every turn, no restart needed.",
+  "$schema": "./config.schema.json",
+  "$comment": "Shipped defaults. Your copy lives at ~/.laconia/config.json and is re-read every turn, so edits take effect without a restart. Anything you omit falls back to this file.",
 
   "mode": "block",
-  "$mode": "block = reject a violating reply and rewrite it before Marko sees it. advisory = log only. off = disabled.",
+  "$mode": "block = reject a violating reply and rewrite it before it is shown. advisory = log only, never interrupt. off = disable the gate (the voice contract stays on).",
 
   "blockRules": ["em-dash", "inline-header-bullet", "emoji"],
-  "$blockRules": "Only mechanically unambiguous rules belong here. Judgment rules (length, bold-density, altitude) stay advisory and are handled by the output style.",
+  "$blockRules": "Only mechanically unambiguous rules belong here. Judgment rules like length and altitude stay advisory and are carried by the voice contract instead.",
 
   "circuitBreaker": {
     "maxBlocksPerSession": 5,
-    "$comment": "After this many blocks in one session, Laconia downgrades itself to advisory for the rest of the session and says so once. Stops a bad rule turning into a loop of nagging."
+    "$comment": "After this many blocks in one session, Laconia downgrades itself to advisory for the rest of it and says so once. A bad rule cannot become a loop of nagging."
   },
 
   "lint": {
@@ -21,14 +22,14 @@
   },
 
   "browserFirst": {
-    "enabled": true,
+    "enabled": false,
     "denyWebFetch": true,
     "denyWebSearch": true,
-    "$comment": "Marko has asked for browser-based research six separate times (25 Jul, 3 Aug, 4 Aug x2, 20 Aug x2), so it gets denied rather than discouraged. WebFetch returns another model's summary of a stripped page and fails quietly. His stated reason for WebSearch on 20 Aug was new: sites reject the fetcher outright, so only a real browser loads a complete page. Search inside the browser instead. A duplicate deny also lives in ~/.claude/settings.json (installed by another agent) as a floor that survives disabling this plugin."
+    "$comment": "Off by default because it is a strong opinion, not a writing rule. Turn it on if you want agents pushed to a real browser (Playwright MCP, Claude in Chrome) instead of WebFetch, whose output is a small model's summary of a stripped page and fails quietly. Claude Code only: Codex web search is a hosted tool that hooks cannot intercept."
   },
 
   "ledger": {
     "enabled": true,
-    "$comment": "One JSONL line per turn-ending reply, at ~/.claude/laconia/ledger.jsonl. This is what /laconia reports on."
+    "$comment": "One JSONL line per turn-ending reply at ~/.laconia/ledger.jsonl. Local only, never uploaded. This is what `laconia report` reads."
   }
 }

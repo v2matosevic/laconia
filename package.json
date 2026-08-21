@@ -1,0 +1,54 @@
+{
+  "name": "laconia",
+  "version": "1.0.0",
+  "description": "Makes your coding agent write like a person. An always-on voice contract, a deterministic slop linter, and a hook that rewrites a violating reply before you read it. Works with Claude Code and Codex.",
+  "type": "module",
+  "bin": {
+    "laconia": "./bin/laconia.mjs"
+  },
+  "exports": {
+    ".": "./lib/lint.mjs",
+    "./lint": "./lib/lint.mjs",
+    "./audit": "./lib/audit.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "scripts/",
+    "hooks/",
+    "output-styles/",
+    ".claude-plugin/",
+    "laconia.config.json",
+    "SKILL.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "audit": "node bin/laconia.mjs audit"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "claude-code-plugin",
+    "ai-slop",
+    "writing",
+    "output-style",
+    "hooks",
+    "linter",
+    "llm",
+    "agent"
+  ],
+  "homepage": "https://github.com/v2matosevic/laconia#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/v2matosevic/laconia.git"
+  },
+  "bugs": {
+    "url": "https://github.com/v2matosevic/laconia/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

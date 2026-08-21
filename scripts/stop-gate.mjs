@@ -2,79 +2,68 @@
 /**
  * Stop hook. Lints the reply that is about to end the turn.
  *
- * On a hard violation in block mode it returns decision:"block" with the exact
- * list, which comes back to the model as its next instruction, so the reply is
- * rewritten before it is ever read. Everything, blocked or not, lands in the
- * ledger so /laconia can show whether any of this is working.
+ * Wired into both Claude Code and Codex, which happen to share the same
+ * contract: return `decision: "block"` with a reason and the reason comes back
+ * to the model as its next instruction, so the reply is rewritten before anyone
+ * reads it. Everything, blocked or not, lands in the ledger.
  *
- * Guards: never fires twice on the same turn (stop_hook_active), and a circuit
- * breaker downgrades to advisory after N blocks in one session so a bad rule
- * cannot become a loop.
+ * Three guards, because a hook that fires on every turn has to be impossible to
+ * get stuck in:
+ *   - stop_hook_active, so it never re-enters the same turn
+ *   - a circuit breaker that downgrades to advisory after N blocks in a session
+ *   - every failure path exits 0 silently, so a broken Laconia never breaks a turn
+ *
+ * Usage: node stop-gate.mjs --agent claude|codex
  */
 
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, openSync, readSync, fstatSync, closeSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { homedir } from 'node:os';
+import {
+  readFileSync, writeFileSync, appendFileSync, existsSync,
+  openSync, readSync, fstatSync, closeSync,
+} from 'node:fs';
+import { LEDGER_PATH, STATE_PATH, ensureHome } from '../lib/paths.mjs';
+import { loadConfig } from '../lib/config.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..');
-const STATE_DIR = join(homedir(), '.claude', 'laconia');
+const exitQuietly = () => process.exit(0);
 
-const ok = () => process.exit(0);
-
-/**
- * Which CLI is calling. Passed explicitly on the command line by whoever wired
- * the hook, because the two payloads are near-identical: Codex adds `model` and
- * `turn_id`, Claude Code adds `background_tasks`, and neither is worth guessing
- * from when one flag settles it.
- */
-const argAgent = (() => {
+const agentFlag = (() => {
   const i = process.argv.indexOf('--agent');
   return i > 0 ? process.argv[i + 1] : null;
 })();
 
-// ------------------------------------------------------------------ input
-
-function readStdin() {
-  try {
-    return readFileSync(0, 'utf8');
-  } catch {
-    return '';
-  }
-}
+// ------------------------------------------------------------------- input
 
 let input;
 try {
-  input = JSON.parse(readStdin() || '{}');
+  input = JSON.parse(readFileSync(0, 'utf8') || '{}');
 } catch {
-  ok();
+  exitQuietly();
 }
 
-// Never re-enter: this turn already came back through a Laconia block.
-if (input.stop_hook_active) ok();
+if (input.stop_hook_active) exitQuietly();
 
 const message = input.last_assistant_message || '';
-if (!message.trim()) ok();
+if (!message.trim()) exitQuietly();
 
-// ----------------------------------------------------------------- config
+// ------------------------------------------------------------------ config
 
-let cfg = {};
+let cfg;
 try {
-  cfg = JSON.parse(readFileSync(join(ROOT, 'laconia.config.json'), 'utf8'));
-} catch { /* defaults below */ }
+  cfg = loadConfig();
+} catch {
+  exitQuietly();
+}
 
 const mode = cfg.mode || 'block';
-if (mode === 'off') ok();
+if (mode === 'off') exitQuietly();
 
 const blockRules = new Set(cfg.blockRules || ['em-dash', 'inline-header-bullet', 'emoji']);
 const maxBlocks = cfg.circuitBreaker?.maxBlocksPerSession ?? 5;
 
-// --------------------------------------------------- did he ask for depth?
+// ------------------------------------------------- did they ask for depth?
 
 const DEPTH = /\b(explain|why\b|walk me through|in detail|detailed|full picture|deep dive|audit|review|research|compare|options|how does|how do|teach|understand)\b/i;
 
-/** Read only the tail of the transcript: these files reach hundreds of MB. */
+/** Tail-read only: transcripts reach hundreds of megabytes. */
 function lastUserMessage(path) {
   if (!path || !existsSync(path)) return '';
   let fd;
@@ -90,51 +79,54 @@ function lastUserMessage(path) {
       if (!l.startsWith('{')) continue;
       let rec;
       try { rec = JSON.parse(l); } catch { continue; }
-      if (rec.type !== 'user' || rec.isSidechain) continue;
-      const c = rec.message?.content;
-      if (typeof c === 'string') return c;
-      if (Array.isArray(c)) {
-        if (c.some((b) => b?.type === 'tool_result')) continue;
-        const t = c.filter((b) => b?.type === 'text').map((b) => b.text).join('\n');
-        if (t.trim()) return t;
+
+      // Claude Code shape
+      if (rec.type === 'user' && !rec.isSidechain) {
+        const c = rec.message?.content;
+        if (typeof c === 'string') return c;
+        if (Array.isArray(c)) {
+          if (c.some((b) => b?.type === 'tool_result')) continue;
+          const t = c.filter((b) => b?.type === 'text').map((b) => b.text).join('\n');
+          if (t.trim()) return t;
+        }
+      }
+
+      // Codex shape
+      if (rec.type === 'response_item' && rec.payload?.role === 'user') {
+        const t = (rec.payload.content || [])
+          .filter((b) => b?.type === 'input_text' || b?.type === 'text')
+          .map((b) => b.text || '').join('\n');
+        if (t.trim() && !t.includes('<hook_prompt')) return t;
       }
     }
-  } catch { /* fall through */ } finally {
-    if (fd !== undefined) try { closeSync(fd); } catch {}
+  } catch { /* transcript format is not a stable interface; degrade quietly */ } finally {
+    if (fd !== undefined) { try { closeSync(fd); } catch {} }
   }
   return '';
 }
 
-const lastUser = lastUserMessage(input.transcript_path);
-const depthRequested = DEPTH.test(lastUser);
+const depthRequested = DEPTH.test(lastUserMessage(input.transcript_path));
 
-// ------------------------------------------------------------------- lint
+// -------------------------------------------------------------------- lint
 
 let lint;
 try {
-  ({ lint } = await import(new URL('../bin/laconia-lint.mjs', import.meta.url).href));
+  ({ lint } = await import('../lib/lint.mjs'));
 } catch {
-  ok();
+  exitQuietly();
 }
 
 const result = lint(message, { ...(cfg.lint || {}), depthRequested });
 
-// ----------------------------------------------------------------- ledger
+// ------------------------------------------------------------------- state
 
-function ensureDir() {
-  try { mkdirSync(STATE_DIR, { recursive: true }); } catch {}
-}
-
-function statePath() { return join(STATE_DIR, 'state.json'); }
-
-function loadState() {
-  try { return JSON.parse(readFileSync(statePath(), 'utf8')); } catch { return {}; }
-}
-
-function saveState(s) {
-  ensureDir();
-  try { writeFileSync(statePath(), JSON.stringify(s, null, 2)); } catch {}
-}
+const loadState = () => {
+  try { return JSON.parse(readFileSync(STATE_PATH, 'utf8')); } catch { return {}; }
+};
+const saveState = (s) => {
+  ensureHome();
+  try { writeFileSync(STATE_PATH, JSON.stringify(s, null, 2)); } catch {}
+};
 
 const state = loadState();
 const sid = input.session_id || 'unknown';
@@ -145,11 +137,11 @@ const hardHits = result.hard.filter((v) => blockRules.has(v.rule));
 const shouldBlock = mode === 'block' && hardHits.length > 0 && !sess.tripped;
 
 if (cfg.ledger?.enabled !== false) {
-  ensureDir();
+  ensureHome();
   try {
-    appendFileSync(join(STATE_DIR, 'ledger.jsonl'), JSON.stringify({
+    appendFileSync(LEDGER_PATH, JSON.stringify({
       ts: new Date().toISOString(),
-      agent: argAgent || (input.model ? 'codex' : 'claude'),
+      agent: agentFlag || (input.model ? 'codex' : 'claude'),
       session: sid,
       cwd: input.cwd || '',
       words: result.words,
@@ -164,16 +156,15 @@ if (cfg.ledger?.enabled !== false) {
   } catch {}
 }
 
-// ------------------------------------------------------------------ verdict
-
 if (!shouldBlock) {
-  // Prune sessions so state.json cannot grow without bound.
   const keys = Object.keys(state);
   if (keys.length > 200) for (const k of keys.slice(0, keys.length - 100)) delete state[k];
   state[sid] = sess;
   saveState(state);
-  ok();
+  exitQuietly();
 }
+
+// ----------------------------------------------------------------- verdict
 
 sess.blocks++;
 const tripping = sess.blocks >= maxBlocks;
@@ -181,32 +172,34 @@ if (tripping) sess.tripped = true;
 state[sid] = sess;
 saveState(state);
 
-const lines = [];
 const byRule = {};
 for (const v of hardHits) (byRule[v.rule] ||= []).push(v);
-for (const [rule, hits] of Object.entries(byRule)) {
-  lines.push(`  ${rule} (${hits.length}x, line${hits.length > 1 ? 's' : ''} ` +
-    `${[...new Set(hits.map((h) => h.line))].slice(0, 8).join(', ')}): ${hits[0].message}`);
-}
+
+const lines = Object.entries(byRule).map(([rule, hits]) => {
+  const where = [...new Set(hits.map((h) => h.line))].slice(0, 8).join(', ');
+  return `  ${rule} (${hits.length}x, line${hits.length > 1 ? 's' : ''} ${where}): ${hits[0].message}`;
+});
 
 const advisories = result.soft
   .filter((v) => ['length', 'bold-density', 'header-in-short-reply'].includes(v.rule))
   .map((v) => `  ${v.rule}: ${v.message}`);
 
 let reason =
-  'Laconia blocked this reply before it was shown. Rewrite it and send the rewrite as your ' +
-  'reply. Do not mention this hook, do not apologise, do not explain the edit.\n\n' +
+  'Laconia blocked this reply before it was shown. Rewrite it and send the rewrite as ' +
+  'your reply. Do not mention this hook, do not apologise, do not explain the edit.\n\n' +
   'Hard violations:\n' + lines.join('\n');
 
-if (advisories.length) reason += '\n\nAlso worth fixing while you are in there:\n' + advisories.join('\n');
+if (advisories.length) {
+  reason += '\n\nAlso worth fixing while you are in there:\n' + advisories.join('\n');
+}
 
 reason += '\n\nSame facts, same thoroughness, none of the tells. Lead with what is now true, ' +
-  'name any decision he owns, then stop.';
+  'name any decision they own, then stop.';
 
 if (tripping) {
-  reason += `\n\n(This is block ${sess.blocks} of this session, so Laconia is switching to ` +
-    'advisory for the rest of it. Later replies will be logged, not blocked. Tell him that once, ' +
-    'in one short line, at the end of your next reply.)';
+  reason += `\n\n(That is ${sess.blocks} blocks this session, so Laconia is switching to advisory ` +
+    'for the rest of it. Later replies will be logged, not blocked. Mention that once, in one ' +
+    'short line, at the end of your next reply.)';
 }
 
 process.stdout.write(JSON.stringify({ decision: 'block', reason }) + '\n');
