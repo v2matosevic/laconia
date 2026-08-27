@@ -4,8 +4,24 @@
  *
  * Wired into both Claude Code and Codex, which happen to share the same
  * contract: return `decision: "block"` with a reason and the reason comes back
- * to the model as its next instruction, so the reply is rewritten before anyone
- * reads it. Everything, blocked or not, lands in the ledger.
+ * to the model as its next instruction, so the model writes a corrected reply.
+ * Everything, blocked or not, lands in the ledger.
+ *
+ * WHAT "block" DOES NOT DO, mis-documented here until 2026-08-27.
+ *
+ * A Stop hook cannot fire until the model has FINISHED the reply. In a client
+ * that streams tokens to the screen as they arrive, and Claude Code's terminal
+ * does, the violating reply is already on screen by the time this runs, and
+ * there is no API to retract rendered output. So the rewrite lands as a SECOND
+ * message under the first: the last word is clean, but the reader saw both.
+ * Only a client that buffers a whole reply before displaying it can make block
+ * look like true suppression.
+ *
+ * Two consequences for the code below. The reason text no longer claims the
+ * reply was stopped "before it was shown", because in the common case that is
+ * false. And it is kept SHORT: in a streaming client every line of it is noise
+ * printed after the fact, to a reader who has already read the thing it is
+ * complaining about. Detail belongs in the ledger, which is not on screen.
  *
  * Three guards, because a hook that fires on every turn has to be impossible to
  * get stuck in:
@@ -175,6 +191,9 @@ saveState(state);
 const byRule = {};
 for (const v of hardHits) (byRule[v.rule] ||= []).push(v);
 
+// One line per rule, not per hit. A streaming client has already printed the
+// reply, so everything here is read AFTER the thing it complains about. The
+// shorter it is, the less it costs a reader who cannot unsee the original.
 const lines = Object.entries(byRule).map(([rule, hits]) => {
   const where = [...new Set(hits.map((h) => h.line))].slice(0, 8).join(', ');
   return `  ${rule} (${hits.length}x, line${hits.length > 1 ? 's' : ''} ${where}): ${hits[0].message}`;
@@ -184,17 +203,18 @@ const advisories = result.soft
   .filter((v) => ['length', 'bold-density', 'header-in-short-reply'].includes(v.rule))
   .map((v) => `  ${v.rule}: ${v.message}`);
 
+// Deliberately does NOT say "before it was shown". In Claude Code it was shown;
+// see the note at the top of this file. Claiming otherwise taught at least one
+// reader to distrust the whole gate, which is a bad trade for one sentence.
 let reason =
-  'Laconia blocked this reply before it was shown. Rewrite it and send the rewrite as ' +
-  'your reply. Do not mention this hook, do not apologise, do not explain the edit.\n\n' +
-  'Hard violations:\n' + lines.join('\n');
+  'Laconia: hard violations in that reply. Send a corrected version as your next ' +
+  'reply. Do not mention this hook, do not apologise, do not explain the edit.\n\n' +
+  lines.join('\n');
 
-if (advisories.length) {
-  reason += '\n\nAlso worth fixing while you are in there:\n' + advisories.join('\n');
-}
+if (advisories.length) reason += '\n\nAlso:\n' + advisories.join('\n');
 
-reason += '\n\nSame facts, same thoroughness, none of the tells. Lead with what is now true, ' +
-  'name any decision they own, then stop.';
+reason += '\n\nSame facts, same thoroughness, none of the tells. Lead with what is now ' +
+  'true, name any decision they own, then stop.';
 
 if (tripping) {
   reason += `\n\n(That is ${sess.blocks} blocks this session, so Laconia is switching to advisory ` +

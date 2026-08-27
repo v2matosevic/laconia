@@ -3,7 +3,8 @@
   "$comment": "Shipped defaults. Your copy lives at ~/.laconia/config.json and is re-read every turn, so edits take effect without a restart. Anything you omit falls back to this file.",
 
   "mode": "block",
-  "$mode": "block = reject a violating reply and rewrite it before it is shown. advisory = log only, never interrupt. off = disable the gate (the voice contract stays on).",
+  "$mode": "block = make the model send a corrected reply after a violating one. advisory = log only, never interrupt. off = disable the gate (the voice contract stays on).",
+  "$modeAndStreaming": "READ THIS BEFORE CHOOSING. block does NOT hide the violating reply in a client that streams tokens to the screen as they arrive, and Claude Code's terminal streams. A Stop hook cannot fire until the reply is finished, by which point it is already rendered and nothing can retract it, so the correction appears as a SECOND message beneath the first. The last word is clean; the reader saw both. In a client that buffers a whole reply before displaying it, block is a true suppression. Pick block if what matters is that the final answer is clean, for instance because it gets copied elsewhere or fed to another tool, and if you accept reading a violating turn twice. Pick advisory if what matters is reading each reply exactly once, and you would rather fix the rate at source. Either way the ledger records everything, so `laconia report` is unaffected. Measured on one real week before this was understood: 549 replies, 95 blocked, 90 of those on em dashes alone.",
 
   "blockRules": ["em-dash", "inline-header-bullet", "emoji"],
   "$blockRules": "Only mechanically unambiguous rules belong here. Judgment rules like length and altitude stay advisory and are carried by the voice contract instead.",

@@ -178,6 +178,32 @@ take effect without a restart.
 }
 ```
 
+### What `block` does, and what it cannot do
+
+`block` makes the model send a corrected reply after a violating one. It does
+**not** hide the violating reply in a client that streams tokens to the screen
+as they arrive, and Claude Code's terminal streams.
+
+That is structural, not a bug. A Stop hook cannot fire until the model has
+finished the reply. By then it is already rendered, and there is no API to
+retract rendered output, so the correction lands as a second message beneath the
+first. The final word is clean; the reader saw both. Only a client that buffers
+a whole reply before displaying it turns `block` into true suppression.
+
+Pick on what you actually want:
+
+| | |
+|---|---|
+| `block` | The final answer is always clean. Worth it when replies get copied to a client, pasted into a document, or read by another tool. You pay by reading a violating turn twice. |
+| `advisory` | Each reply is read exactly once. Violations still reach the ledger, so `report` and `audit` are unaffected. You pay with the occasional em dash. |
+
+If you are reading double too often, the number to attack is the violation rate,
+not the gate. Over one measured week of 549 replies, 95 were blocked and **90 of
+those 95 were em dashes**. When a single rule dominates that heavily, the
+contract is the fix and the gate is only the backstop, which is the same point
+the design section below makes about prompts and plateaus. Setting
+`circuitBreaker.maxBlocksPerSession` to `1` or `2` caps the cost meanwhile.
+
 Write anything personal into `~/.laconia/voice.local.md` and re-run
 `npx laconia install`. It is appended to the contract for every agent. Use it for
 who is reading, vocabulary you cannot stand, a language other than English, or the

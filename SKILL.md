@@ -54,8 +54,9 @@ Fix what it finds, then re-run. Never hand over a draft that still fails.
 
 Edit `~/.laconia/config.json`:
 
-- `mode`: `block` rewrites a violating reply before it is seen, `advisory` only
-  logs, `off` disables the gate. The voice contract stays on in all three.
+- `mode`: `block` makes the model send a corrected reply after a violating one,
+  `advisory` only logs, `off` disables the gate. The voice contract stays on in
+  all three. Read the next section before choosing.
 - `blockRules`: only mechanically unambiguous rules belong here. Judgment rules
   stay advisory by design.
 - `circuitBreaker.maxBlocksPerSession`: after this many blocks in one session
@@ -71,6 +72,34 @@ is the right place for who is reading, vocabulary to avoid, or a language other
 than English.
 
 Turn everything off with `npx laconia uninstall`.
+
+## Which mode, and what block cannot do
+
+`block` does **not** hide the violating reply in a client that streams tokens to
+the screen as they arrive. Claude Code's terminal streams. A Stop hook cannot
+fire until the reply is finished, and by then it is rendered with no API to
+retract it, so the correction arrives as a second message beneath the first. The
+final word is clean; the reader saw both. Only a client that buffers a whole
+reply before displaying it makes `block` a true suppression.
+
+This was documented the other way round until 2026-08-27, so a user who reads
+the old wording and then watches a reply appear anyway concludes the gate is
+broken. It is not. It is doing the only thing a Stop hook can do.
+
+Choose on what you actually want. Use `block` when the final answer has to be
+clean, because it gets copied somewhere, pasted to a client, or read by another
+tool, and you accept reading a violating turn twice. Use `advisory` when you want
+to read each reply exactly once; violations are still logged, so `report` and
+`audit` are unaffected.
+
+If someone complains about seeing double, the honest answer is that the gate
+cannot prevent it, and the real fix is the violation rate. On one measured week:
+549 replies, 95 blocked, **90 of the 95 on em dashes alone**. When a single rule
+is that dominant, tightening the contract beats tuning the gate, and blocking is
+already a backstop rather than the mechanism.
+
+A useful middle setting is `circuitBreaker.maxBlocksPerSession: 1` or `2`, which
+caps how many times per session a reader can be shown the same turn twice.
 
 ## When they complain about a reply again
 
