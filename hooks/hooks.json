@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/stop-gate.mjs\" --agent claude",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/stop-gate.mjs\"",
             "timeout": 15,
             "statusMessage": "Laconia: checking the reply"
           }
@@ -21,6 +21,17 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/browser-first.mjs\"",
             "timeout": 10,
             "statusMessage": "Laconia: browser-first check"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start.mjs\"",
+            "timeout": 10
           }
         ]
       }

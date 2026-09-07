@@ -10,12 +10,17 @@
     {
       "name": "laconia",
       "source": "./",
-      "description": "Short, plain, human replies. An always-on voice contract, a deterministic slop linter, and a Stop hook that rewrites a violating reply before you read it.",
-      "version": "1.0.0",
+      "description": "Clear, natural coding-agent replies with local style checks.",
+      "version": "1.1.0",
       "author": {
         "name": "Version2"
       },
-      "keywords": ["writing", "output-style", "hooks", "ai-slop"]
+      "keywords": [
+        "writing",
+        "output-style",
+        "hooks",
+        "ai-slop"
+      ]
     }
   ]
 }

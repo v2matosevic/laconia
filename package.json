@@ -1,7 +1,7 @@
 {
   "name": "laconia",
-  "version": "1.0.0",
-  "description": "Makes your coding agent write like a person. An always-on voice contract, a deterministic slop linter, and a hook that rewrites a violating reply before you read it. Works with Claude Code and Codex.",
+  "version": "1.1.0",
+  "description": "Clear, natural coding-agent replies. Shared voice preferences, local style checks and optional correction requests.",
   "type": "module",
   "bin": {
     "laconia": "./bin/laconia.mjs"
@@ -21,10 +21,13 @@
     "laconia.config.json",
     "SKILL.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    ".codex-plugin/",
+    "config.schema.json",
+    "skills/"
   ],
   "scripts": {
-    "test": "node --test \"test/**/*.test.mjs\"",
+    "test": "node scripts/test.mjs",
     "audit": "node bin/laconia.mjs audit"
   },
   "keywords": [

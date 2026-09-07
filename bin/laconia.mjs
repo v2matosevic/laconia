@@ -2,15 +2,16 @@
 /**
  * laconia — the CLI.
  *
- *   npx laconia audit       measure your own agent's writing
- *   npx laconia install     wire it into every agent on this machine
- *   npx laconia lint FILE   check a draft before you send it
+ *   node bin/laconia.mjs audit       measure your own agent's writing
+ *   node bin/laconia.mjs install     wire it into every agent on this machine
+ *   node bin/laconia.mjs lint FILE   check a draft before you send it
  */
 
 import { readFileSync } from 'node:fs';
 import { lint } from '../lib/lint.mjs';
-import { collect, score } from '../lib/audit.mjs';
+import { collect } from '../lib/audit.mjs';
 import { PKG_ROOT } from '../lib/paths.mjs';
+import { loadConfig } from '../lib/config.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = (argv[0] || '').replace(/^--/, '');
@@ -34,19 +35,6 @@ const cyan = c(36);
 
 const out = (s = '') => process.stdout.write(s + '\n');
 
-/** Measured over 1,199 turn-ending answers from one developer's archive, 2026-08-21. */
-const REFERENCE = {
-  medianWords: 311,
-  emDashPct: 90.4,
-  cleanPct: 9.1,
-  bulletPct: 40.0,
-};
-
-function bar(pct, width = 24, tint = red) {
-  const filled = Math.max(0, Math.min(width, Math.round((pct / 100) * width)));
-  return tint('█'.repeat(filled)) + dim('░'.repeat(width - filled));
-}
-
 function version() {
   try {
     return JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
@@ -58,106 +46,41 @@ function version() {
 // -------------------------------------------------------------------- audit
 
 async function cmdAudit() {
-  const budgetMb = Number(val('max-mb', 400));
-  const tools = val('tool') ? [val('tool')] : ['claude', 'codex'];
-
-  out();
-  out(bold('  Laconia audit'));
-  out(dim('  Reading transcripts already on this machine. Nothing is uploaded.'));
-  out();
-
-  const per = collect({ budgetMb, tools });
-  const names = { claude: 'Claude Code', codex: 'Codex' };
-  const all = [];
-  let any = false;
-  let capped = false;
-
-  for (const [tool, data] of Object.entries(per)) {
-    if (!data.finals.length) {
-      out(`  ${dim(names[tool] + ': no turn-ending replies found')}`);
-      continue;
+  const budgetMb = Number(val('max-mb', 100));
+  if (!Number.isFinite(budgetMb) || budgetMb <= 0) throw new Error('max-mb must be positive');
+  const tool = val('tool');
+  if (tool && !['claude', 'codex'].includes(tool)) throw new Error('tool must be claude or codex');
+  const per = collect({ budgetMb, tools: tool ? [tool] : ['claude', 'codex'] });
+  out('Laconia transcript sample. Local reads only; mechanical style, not writing quality.');
+  const cfg = loadConfig();
+  for (const [agent, data] of Object.entries(per)) {
+    out(agent + ': ' + data.records.length + ' final replies from ' + data.files + '/' + data.filesTotal + ' files.');
+    for (const kind of ['routine', 'brief', 'depth', 'unknown']) {
+      const records = data.records.filter((r) => r.requestClass === kind);
+      if (!records.length) continue;
+      const results = records.map((r) => lint(r.text, { ...cfg.lint, depthRequested: r.depthRequested }));
+      const w = results.map((r) => r.words).sort((a, b) => a - b), m = Math.floor(w.length / 2);
+      const median = w.length % 2 ? w[m] : (w[m - 1] + w[m]) / 2;
+      out('  ' + kind + ': ' + records.length + ' replies, median ' + median + ' prose words.');
     }
-    any = true;
-    all.push(...data.finals);
-    out(`  ${bold(names[tool])}  ${dim(`${data.finals.length} replies from ${data.files} of ${data.filesTotal} transcripts, ${(data.bytes / 1048576).toFixed(0)} MB`)}`);
-    if (data.capped) capped = true;
+    if (data.capped) out('  Incomplete sample: file budget skips some transcripts, including files larger than the limit.');
   }
-  if (capped) out(`  ${dim(`Reading the most recent ${budgetMb} MB per tool. Raise it with --max-mb.`)}`);
-
-  if (!any) {
-    out();
-    out(`  ${yellow('No transcripts found.')}`);
-    out(dim('  Looked in ~/.claude/projects and ~/.codex/sessions.'));
-    out(dim('  Use --max-mb to widen the scan, or run this on the machine you code on.'));
-    out();
-    return 0;
-  }
-
-  const s = score(all);
-  out();
-  out(`  ${bold('Your turn-ending replies')}  ${dim(`n=${s.n}`)}`);
-  out();
-
-  const row = (label, value, ref, unit = '', lowerIsBetter = true) => {
-    const good = lowerIsBetter ? value <= ref : value >= ref;
-    const tint = good ? green : red;
-    out(`    ${label.padEnd(26)} ${tint(String(value.toFixed(unit === '%' ? 1 : 0) + unit).padStart(8))}   ` +
-      `${bar(unit === '%' ? value : Math.min(100, (value / (ref * 2)) * 100), 20, tint)}  ${dim('ref ' + ref + unit)}`);
-  };
-
-  row('median words', s.medianWords, REFERENCE.medianWords);
-  row('replies with an em dash', s.emDashPct, REFERENCE.emDashPct, '%');
-  row('bold-headed bullets', s.bulletPct, REFERENCE.bulletPct, '%');
-  row('clean replies', s.cleanPct, REFERENCE.cleanPct, '%', false);
-
-  out();
-  out(`    ${dim('longest reply')} ${bold(s.maxWords + ' words')}   ` +
-    `${dim('over 250 words')} ${bold(s.over250.toFixed(0) + '%')}   ` +
-    `${dim('em dashes per reply')} ${bold(s.emDashPerMsg.toFixed(1))}`);
-  out();
-
-  const tells = [
-    ['em dash', s.emDashPct],
-    ['bold over budget', s.boldPct],
-    ['bold-headed bullet', s.bulletPct],
-    ['table in a reply', s.tablePct],
-    ['header in a short reply', s.headerPct],
-    ['trailing offer', s.offerPct],
-    ['"not just X but Y"', s.negParPct],
-    ['emoji as formatting', s.emojiPct],
-    ['AI vocabulary', s.vocabPct],
-  ].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-
-  if (tells.length) {
-    out(`  ${bold('Where the slop is')}`);
-    out();
-    for (const [name, pct] of tells) {
-      out(`    ${name.padEnd(26)} ${String(pct.toFixed(1) + '%').padStart(7)}  ${bar(pct, 24, pct > 30 ? red : yellow)}`);
-    }
-    out();
-  }
-
-  if (s.worst[0] && s.worst[0].r.score > 0) {
-    const w = s.worst[0];
-    out(`  ${bold('Your worst reply')}  ${dim(`score ${w.r.score}, ${w.r.words} words`)}`);
-    out();
-    const snippet = w.text.replace(/\s+/g, ' ').slice(0, 220);
-    out(`    ${dim(snippet + (w.text.length > 220 ? '…' : ''))}`);
-    out();
-  }
-
-  const verdict = s.medianWords > 200 || s.emDashPct > 50;
-  out(verdict
-    ? `  ${red('That is a lot of words nobody asked for.')}  ${dim('Fix it: npx laconia install')}`
-    : `  ${green('Not bad.')}  ${dim('Keep it that way: npx laconia install')}`);
-  out();
+  out('No before/after claim: this archive sample has no verified contract or model matching.');
   return 0;
 }
 
 // --------------------------------------------------------------------- lint
 
 async function cmdLint() {
-  const file = argv.slice(1).find((a) => !a.startsWith('--'));
+  const values = new Set(['--text', '--format']);
+  const positionals = [];
+  for (let i = 1; i < argv.length; i++) {
+    if (values.has(argv[i])) { if (!argv[i + 1]) throw new Error(`${argv[i]} needs a value`); i++; }
+    else if (!argv[i].startsWith('--')) positionals.push(argv[i]);
+    else if (!['--depth', '--json'].includes(argv[i])) throw new Error(`unknown lint option ${argv[i]}`);
+  }
+  if (positionals.length > 1) throw new Error('lint accepts one file');
+  const file = positionals[0];
   const text = val('text');
 
   const readStdin = () => new Promise((res) => {
@@ -171,7 +94,10 @@ async function cmdLint() {
   if (body === undefined && file) body = readFileSync(file, 'utf8');
   if (body === undefined) body = await readStdin();
 
-  const r = lint(body || '', { depthRequested: has('depth') });
+  const cfg = loadConfig();
+  const format = val('format', cfg.lint.format);
+  if (!['chat', 'document', 'structured'].includes(format)) throw new Error('format must be chat, document or structured');
+  const r = lint(body || '', { ...cfg.lint, depthRequested: has('depth'), format });
 
   if (has('json')) {
     out(JSON.stringify(r, null, 2));
@@ -198,34 +124,40 @@ async function cmdLint() {
 
 async function cmdInstall(mode) {
   const { run } = await import('../lib/install.mjs');
-  return run({ mode, quiet: has('quiet') });
+  return run({ mode, quiet: has('quiet'), agent: val('agent', 'both') });
 }
 
 // ------------------------------------------------------------------- report
 
 async function cmdReport() {
   const { report } = await import('../lib/report.mjs');
-  return report({ days: Number(argv[1]) || 0 });
+  const token = argv.slice(1).find((arg) => !arg.startsWith('--'));
+  const days = token === undefined ? 7 : Number(token);
+  if (!Number.isFinite(days) || days < 0) throw new Error('days must be a nonnegative number');
+  return report({ days, json: has('json') });
 }
 
 // --------------------------------------------------------------------- help
 
 function help() {
   out(`
-  ${bold('laconia')} ${dim('v' + version())}   makes your coding agent write like a person
+  ${bold('laconia')} ${dim('v' + version())}   clear, natural coding-agent replies
 
-  ${bold('npx laconia audit')}            measure your own agent's writing, locally
-  ${bold('npx laconia install')}          wire it into every agent on this machine
-  ${bold('npx laconia lint')} FILE        check a draft before you send it
-  ${bold('npx laconia report')} [DAYS]    has it actually improved?
-  ${bold('npx laconia check')}            what is wired right now
-  ${bold('npx laconia uninstall')}        remove it
+  ${bold('node bin/laconia.mjs audit')}            measure your own agent's writing, locally
+  ${bold('node bin/laconia.mjs install')}          wire it into every agent on this machine
+  ${bold('node bin/laconia.mjs lint')} FILE        check a draft before you send it
+  ${bold('node bin/laconia.mjs report')} [DAYS]    mechanical style by agent
+  ${bold('node bin/laconia.mjs check')}            configuration and drift checks
+  ${bold('node bin/laconia.mjs uninstall')}        remove it
 
-  ${dim('audit')}      --max-mb N     how much transcript to read (default 400)
+  ${dim('audit')}      --max-mb N     how much transcript to read (default 100)
              --tool NAME    claude or codex, default both
   ${dim('lint')}       --text "..."   lint a string instead of a file
              --json         machine-readable output
              --depth        allow the longer word budget
+             --format F     chat, document or structured
+  install    --agent NAME   claude, codex or both (default both)
+  report     --json         version-aware report data; 0 days = all history
 
   ${dim(PKG_ROOT)}
 `);

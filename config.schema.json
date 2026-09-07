@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Laconia settings",
+  "type": "object",
+  "properties": {
+    "mode": {
+      "enum": [
+        "off",
+        "advisory",
+        "block"
+      ]
+    },
+    "blockRules": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "em-dash",
+          "emoji",
+          "inline-header-bullet"
+        ]
+      }
+    },
+    "circuitBreaker": {
+      "type": "object",
+      "properties": {
+        "maxBlocksPerSession": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "lint": {
+      "type": "object",
+      "properties": {
+        "wordBudget": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wordBudgetDepth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxBoldSpans": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "boldPer100Words": {
+          "type": "number",
+          "minimum": 0
+        },
+        "headerFreeUnder": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "disabledRules": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "em-dash",
+              "emoji",
+              "inline-header-bullet",
+              "bold-density",
+              "header-in-short-reply",
+              "table",
+              "horizontal-rule",
+              "negative-parallelism",
+              "trailing-offer",
+              "hedge",
+              "ai-vocab",
+              "length"
+            ]
+          }
+        },
+        "format": {
+          "enum": [
+            "chat",
+            "document",
+            "structured"
+          ]
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "browserFirst": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "denyWebFetch": {
+          "type": "boolean"
+        },
+        "denyWebSearch": {
+          "type": "boolean"
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "ledger": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    }
+  },
+  "patternProperties": {
+    "^\\$": {}
+  },
+  "additionalProperties": false
+}

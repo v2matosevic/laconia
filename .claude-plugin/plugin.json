@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "laconia",
   "displayName": "Laconia",
-  "version": "1.0.0",
-  "description": "Makes your coding agent write like a person: an always-on voice contract, a deterministic slop linter, and a Stop hook that rewrites a violating reply before you read it.",
+  "version": "1.1.0",
+  "description": "Clear, natural coding-agent replies. Shared voice preferences, local style checks and optional correction requests.",
   "author": {
     "name": "Version2",
     "url": "https://github.com/v2matosevic"
@@ -11,5 +11,13 @@
   "homepage": "https://github.com/v2matosevic/laconia",
   "repository": "https://github.com/v2matosevic/laconia",
   "license": "MIT",
-  "keywords": ["writing", "output-style", "voice", "lint", "hooks", "ai-slop"]
+  "keywords": [
+    "writing",
+    "output-style",
+    "voice",
+    "lint",
+    "hooks",
+    "ai-slop"
+  ],
+  "skills": "./skills"
 }

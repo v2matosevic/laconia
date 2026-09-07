@@ -1,0 +1,25 @@
+{
+  "name": "laconia",
+  "version": "1.1.0",
+  "description": "Clear, natural replies while preserving coding instructions and output contracts.",
+  "skills": "./skills",
+  "license": "MIT",
+  "author": {
+    "name": "Version2",
+    "url": "https://github.com/v2matosevic"
+  },
+  "interface": {
+    "displayName": "Laconia",
+    "shortDescription": "Clear, natural coding-agent replies",
+    "category": "Productivity",
+    "longDescription": "Shared voice preferences and local style checks that preserve coding instructions, permissions and requested output formats.",
+    "developerName": "Version2",
+    "defaultPrompt": [
+      "Check my Laconia setup and recent style results."
+    ],
+    "capabilities": [
+      "Read",
+      "Write"
+    ]
+  }
+}

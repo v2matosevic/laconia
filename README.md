@@ -1,282 +1,195 @@
-<div align="center">
-
 # Laconia
 
-**Makes your coding agent write like a person.**
+Clear, natural replies from Claude Code and Codex, with local style checks.
 
-[![npm](https://img.shields.io/npm/v/laconia?color=%23c42b31)](https://www.npmjs.com/package/laconia)
-[![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+Laconia helps an agent answer the actual question, report the true delivery
+state, and keep useful detail. It preserves the agent's coding instructions,
+permission boundaries and requested output formats. A short answer still needs
+to be a complete answer.
 
-Works with **Claude Code** and **Codex**.
+## Install from GitHub
 
-</div>
+Requires Node.js 18 or newer. There is no npm release at the time of this
+release, so use the checkout's CLI rather than `npx laconia`.
 
----
-
-Philip II of Macedon wrote to Sparta: *"If I enter Laconia, I will raze Sparta to
-the ground."*
-
-The Spartans replied with one word. *"If."*
-
----
-
-## See it first
-
-Before you install anything, look at what your agent has actually been sending you.
-
-```bash
-npx laconia audit
+```sh
+git clone https://github.com/v2matosevic/laconia.git
+cd laconia
+node bin/laconia.mjs install
+node bin/laconia.mjs check
 ```
 
-It reads the transcripts already on your disk, finds the messages that ended a
-turn (the ones you actually read), and scores them. Local file reads and regexes.
-Nothing is uploaded, no model is called, no network request is made.
+The installer supports `--agent claude`, `--agent codex`, or both by default.
+It preserves unrelated agent settings and instructions, makes backups before
+shared-file edits, and can be run again. It does not change models, permissions,
+sandbox settings, hook trust, PATH or shell configuration.
 
-```
-  Claude Code  1199 replies from 206 of 500 transcripts, 900 MB
+Start a new session after installing. In Codex, use `/hooks` to review any new
+or changed Laconia hook definition. Configuration presence does not prove that
+a hook is trusted or that a running session received new instructions.
 
-  Your turn-ending replies  n=1199
+### Claude marketplace alternative
 
-    median words                    311   ████████████████░░░░  ref 311
-    replies with an em dash       90.4%   ██████████████████░░  ref 90.4%
-    bold-headed bullets           40.0%   ████████░░░░░░░░░░░░  ref 40%
-    clean replies                  9.1%   ██░░░░░░░░░░░░░░░░░░  ref 9.1%
+Inside Claude Code:
 
-    longest reply 1740 words   over 250 words 62%   em dashes per reply 6.0
-
-  Where the slop is
-
-    em dash                      90.4%  ██████████████████████░░
-    bold over budget             64.6%  ████████████████░░░░░░░░
-    bold-headed bullet           40.0%  ██████████░░░░░░░░░░░░░░
-    table in a reply             16.3%  ████░░░░░░░░░░░░░░░░░░░░
-    trailing offer               10.3%  ██░░░░░░░░░░░░░░░░░░░░░░
-
-  That is a lot of words nobody asked for.  Fix it: npx laconia install
-```
-
-Those are real numbers from one developer's archive. Yours will be your own.
-
-## What changes
-
-Same facts, same thoroughness, same engineering. Only the message changes.
-
-<table>
-<tr><th width="50%">Before, 170 words</th><th width="50%">After, 58 words</th></tr>
-<tr valign="top"><td>
-
-<!-- laconia-disable: this column is a deliberate example of what not to write -->
-
-**v1.3.0 is publicly released and fully verified.**
-
-- **[v1.3.0](#)** is live and marked *Latest* — "88% smaller, races fixed" with `Setup-1.3.0.exe` (58MB, down from 484MB) attached.
-- **cuda-pack-cu13** is live as a separate, non-latest, version-independent release. I HEAD-checked the *exact* URL: HTTP 200, full 448MB — the in-app button works from day one.
-- **version.json pushed** and the raw endpoint verified — every existing install's update checker will surface the new version.
-
-Release order was deliberate: pack first, then the app, then the update-checker flip — so no user could be notified into a broken download.
-
-<!-- laconia-enable -->
-
-</td><td>
-
-v1.3.0 is out and working.
-
-The installer dropped from 484MB to 58MB because the CUDA pack is a separate download now. I checked that download link myself: 200, full 448MB. Existing installs will see the update.
-
-I shipped the pack before the app on purpose, so nobody could get notified into a broken download.
-
-</td></tr>
-</table>
-
-## Install
-
-**Claude Code**, from inside a session:
-
-```
+```text
 /plugin marketplace add v2matosevic/laconia
 /plugin install laconia@laconia
 ```
 
-**Codex, or both at once**, from a terminal:
+Use one Claude route. The skills-directory and marketplace installations can
+collide by plugin name; `check` reports enabled duplicates. The output style
+keeps Claude's software engineering instructions. SessionStart adds personal
+preferences without copying them into the public package. The console skill is
+available as `/laconia:laconia` when the plugin is enabled.
 
-```bash
-npx laconia install
+### Native Codex plugin alternative
+
+The same checkout contains `.codex-plugin/plugin.json`, a discoverable console
+skill and default `hooks/hooks.json`. It can be packaged in a Codex marketplace.
+Its SessionStart hook adds the voice and personal preferences; its Stop hook
+uses the same local checker. Review plugin hooks through Codex's normal trust
+flow. Do not also run the CLI installer for that Codex profile, which would
+add another instruction and hook source.
+
+The CLI route is available independently of native plugin discovery. It keeps
+a durable runtime under `~/.laconia/runtime`, adds a managed block to Codex's
+AGENTS.md, installs the console skill, and wires the Stop hook. It respects
+`CODEX_HOME` and `CLAUDE_CONFIG_DIR`. It does not search or modify other profiles.
+
+## Voice and personal preferences
+
+The shared [voice contract](output-styles/laconia.md) adapts to a question,
+review, explanation or finished task. Routine replies aim below 120 words;
+explanations and required steps get the room they need. A 150-word lint budget
+is a soft warning threshold, not a universal answer limit.
+
+Put personal instructions in `~/.laconia/voice.local.md`. Comments are stripped
+as whole blocks. Claude and the native Codex plugin read that file at session
+start. For the Codex CLI route, rerun `install --agent codex` to update the
+AGENTS block, then start a new session. Personal text never enters the public
+source or a replacement marketplace cache.
+
+For example, a reader may prefer outcomes over implementation details, natural
+Croatian, or no em dashes. These are personal preferences, not universal tests
+of human writing. Explicit user requests, exact quotations, code and structured
+output take precedence over style.
+
+## Local checks
+
+```sh
+node bin/laconia.mjs lint draft.md --format document
+node bin/laconia.mjs lint reply.md --depth --json
+node bin/laconia.mjs lint --text "The fix is tested and ready to release."
+node bin/laconia.mjs report 7
+node bin/laconia.mjs report 7 --json
+node bin/laconia.mjs audit --max-mb 100
 ```
 
-That copies the plugin into `~/.claude/skills/laconia`, writes the voice contract
-into `~/.codex/AGENTS.md`, and wires the gate into `~/.codex/hooks.json`. It skips
-whatever is not installed and it is safe to re-run.
+`lint` reads the same user settings as the hook. Formats are `chat`, `document`
+and `structured`. Valid JSON objects/arrays are recognized automatically.
+Code fences, inline code, quotes and link targets are masked with positions
+preserved. Use `<!-- laconia-disable -->` through `<!-- laconia-enable -->` for
+intentional examples. Exit 1 means a hard preference matched, not that the
+content is incorrect. An explicit user format wins over a formatting preference.
 
-Then restart your sessions. Hooks and system prompts are read at session start.
+The three hard preferences are `em-dash`, `emoji` and `inline-header-bullet`.
+They remain configurable and can have context-dependent false positives.
+Vocabulary, density, length and layout suggestions are advisory. Documents have
+no chat length or layout penalties. A clean score cannot judge clarity,
+factual accuracy, naturalness or whether the answer is useful.
 
-One manual step if you use Codex: it will not run a new hook until you trust it.
-Open Codex, run `/hooks`, trust the Laconia entry. Once per machine.
+## Configuration
 
-## How it works
+Personal overrides live in `~/.laconia/config.json`; missing fields use shipped
+defaults. The checked-in [schema](config.schema.json) and runtime validator
+share the accepted settings. Run `check` after an edit.
 
-Four layers, each doing the job the one above it cannot.
-
-**The voice contract** is an output style, which is the only mechanism that puts
-rules in the system prompt itself and gets re-injected as reminders through the
-conversation. It keeps your agent's coding instructions untouched and governs
-only what it says about the work.
-
-**The linter** is deterministic and has no dependencies. Given text it returns
-violations with line numbers and a score. Code fences, inline code, link targets
-and blockquotes are masked, so a quoted em dash is not a violation.
-
-**The gate** is a `Stop` hook. It lints the reply about to end the turn and, on a
-hard violation, hands the model the exact list to rewrite from. You never see the
-first draft. Claude Code and Codex happen to share this contract, so one script
-serves both.
-
-**The ledger** is one JSONL line per reply at `~/.laconia/ledger.jsonl`. Local
-only. `laconia report` tells you whether any of this actually worked, comparing
-against your own first week rather than someone else's numbers.
-
-## Use it on things you send people
-
-The gate covers chat. The linter covers everything else, and that is often where
-it matters more.
-
-```bash
-npx laconia lint offer.md          # exits 1 on a hard violation
-npx laconia lint --text "..."
-cat draft.md | npx laconia lint
-git diff | npx laconia lint        # commit messages, PR bodies
-```
-
-## The rules
-
-Three are blocked because they are mechanical and cannot produce a false positive
-once code and quotes are masked.
-
-| Rule | Why |
-|---|---|
-| `em-dash` | The single most recognisable mark of generated text. A 2026 study found Claude is the only current model that uses them more than professional writers do. |
-| `inline-header-bullet` | A list item opening with a bold span, `- **Thing:** description`. The most recognisable *shape* of generated text. |
-| `emoji` | Check marks and warning signs as status markers. |
-
-The rest are logged, not blocked, because they need judgment a regex does not
-have: `bold-density`, `header-in-short-reply`, `table`, `horizontal-rule`,
-`negative-parallelism`, `trailing-offer`, `hedge`, `ai-vocab`, `length`.
-
-Rule catalogue adapted from [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing),
-the best field guide to these markers that exists.
-
-## Configure
-
-Everything lives in `~/.laconia/config.json` and is re-read every turn, so edits
-take effect without a restart.
-
-```jsonc
+```json
 {
-  "mode": "block",          // "advisory" to log only, "off" to disable the gate
+  "mode": "advisory",
   "blockRules": ["em-dash", "inline-header-bullet", "emoji"],
-  "circuitBreaker": { "maxBlocksPerSession": 5 },
-  "lint": { "wordBudget": 150, "wordBudgetDepth": 600 }
+  "circuitBreaker": { "maxBlocksPerSession": 2 },
+  "lint": {
+    "wordBudget": 150,
+    "wordBudgetDepth": 600,
+    "disabledRules": [],
+    "format": "chat"
+  }
 }
 ```
 
-### What `block` does, and what it cannot do
+`advisory` is the default: record findings without requesting another answer.
+`block` requests a correction. `off` disables the Stop checker but leaves the
+voice installed. `blockRules` selects hard preferences that request a correction;
+`lint.disabledRules` removes a rule from checking and scoring entirely.
+Invalid configuration degrades to advisory and disables optional browser
+restrictions. Diagnostics appear in `check`, not as repeated chat interruptions.
 
-`block` makes the model send a corrected reply after a violating one. It does
-**not** hide the violating reply in a client that streams tokens to the screen
-as they arrive, and Claude Code's terminal streams.
+A Stop hook runs after a reply. In a streaming client, the user can already have
+seen it. Blocking cannot retract that reply and does not guarantee a clean
+correction. Rewrites are logged separately, never recursively blocked, and
+capped per session. The correction prompt authorizes wording changes only.
 
-That is structural, not a bug. A Stop hook cannot fire until the model has
-finished the reply. By then it is already rendered, and there is no API to
-retract rendered output, so the correction lands as a second message beneath the
-first. The final word is clean; the reader saw both. Only a client that buffers
-a whole reply before displaying it turns `block` into true suppression.
+The optional `browserFirst` feature is off by default and remains separate from
+writing quality. In Claude it can deny WebFetch/WebSearch when the user chooses
+a browser-only workflow. It does not intercept Codex's hosted search. Laconia
+does not enable it during installation.
 
-Pick on what you actually want:
+## Reports and privacy
 
-| | |
-|---|---|
-| `block` | The final answer is always clean. Worth it when replies get copied to a client, pasted into a document, or read by another tool. You pay by reading a violating turn twice. |
-| `advisory` | Each reply is read exactly once. Violations still reach the ledger, so `report` and `audit` are unaffected. You pay with the occasional em dash. |
+The ledger stores local counts and metadata, not reply text. New records include
+agent, optional model, request class, correction status, and hashes of the voice
+and effective config. Per-session state avoids cross-session counter races.
+No data is uploaded by hooks, lint, check, report or audit.
 
-If you are reading double too often, the number to attack is the violation rate,
-not the gate. Over one measured week of 549 replies, 95 were blocked and **90 of
-those 95 were em dashes**. When a single rule dominates that heavily, the
-contract is the fix and the gate is only the backstop, which is the same point
-the design section below makes about prompts and plateaus. Setting
-`circuitBreaker.maxBlocksPerSession` to `1` or `2` caps the cost meanwhile.
+Reports separate agents. Trend comparisons require sufficiently sized,
+non-overlapping time windows with matching request class, model, contract,
+config and score version. Unknown legacy metadata produces no quality claim.
+`report 0` shows all history without a before/after comparison.
 
-Write anything personal into `~/.laconia/voice.local.md` and re-run
-`npx laconia install`. It is appended to the contract for every agent. Use it for
-who is reading, vocabulary you cannot stand, a language other than English, or the
-one thing you keep having to say twice.
+Audit reads a bounded sample of local transcripts and reports its coverage. A
+file larger than the budget is skipped. Request classification is a heuristic,
+including a few English, Croatian and German depth cues; it is not a multilingual
+semantic classifier. A missing request remains unknown. Scores from different
+versions are not directly comparable.
 
-Nothing you own lives inside the package, so an update never overwrites your
-settings, your personal additions, or your ledger.
+## Remove or update
 
-## Why it exists
+Rerun the installer from the updated checkout. It backs up edited shared files
+with `.laconia-bak`, preserves unrelated hook handlers even in a shared group,
+and refuses malformed shared settings or instruction markers.
 
-The rules were not guessed. They came out of measuring 1,199 turn-ending answers
-across 206 transcripts.
-
-The finding that shaped the design: the slop was almost entirely **structural**.
-Punctuation, emphasis, layout. The vocabulary tells barely registered, under 5%.
-"Delve" and "tapestry" are not the problem any more. Structure is, and structure
-is exactly what a machine can check and a prompt cannot reliably fix.
-
-The second finding is why the gate exists at all. A written rule asking for
-shorter replies moved the median from 394 to 296 words and then plateaued, still
-well over target. In the same archive, an instruction to use a browser instead of
-a fetch tool had been given **six separate times**, was sitting in the agent's own
-memory index, and was still broken in the first tool call of the session where
-this was designed.
-
-So: **prose for judgment, machinery for reflexes.** Anything mechanically
-checkable should be mechanically checked, not politely requested.
-
-## Honest limits
-
-The em-dash ban has a real cost. Em dashes are good punctuation. The ban exists
-because frequency is the tell and only a hard rule is enforceable. One line of
-config turns it off.
-
-Output styles apply to the main conversation only, so Claude Code subagents run
-their own system prompt and still write long.
-
-Codex's web search is a hosted tool that hooks cannot intercept, so the optional
-browser-first rule is Claude Code only.
-
-The gate costs one extra model turn each time it fires. If it fires on more than
-about a quarter of your replies after the first few days, the voice contract is
-not landing, and that is the thing to fix rather than the threshold.
-
-`laconia audit` reads your transcripts. That is your session history, so read
-`lib/audit.mjs` before you run it if that matters to you. It is about 130 lines
-and makes no network calls.
-
-## Uninstall
-
-```bash
-npx laconia uninstall              # or /plugin uninstall laconia@laconia
+```sh
+node bin/laconia.mjs uninstall
 ```
 
-Your config and ledger in `~/.laconia` are left alone.
+CLI uninstall removes only Laconia's managed Codex block, hook handlers and
+managed skill file. It disables the local Claude plugin instead of deleting
+source. It retains user config, ledger, runtime and backups. Marketplace plugins
+must be removed through their agent's plugin manager.
 
-## Contributing
+## Verification and contribution
 
-New rules are welcome, with one condition: replay the rule over a real transcript
-corpus before proposing it. The first emoji rule here flagged 41.8% of a real
-archive, and 166 of roughly 200 hits were a plain right arrow used as ordinary
-technical punctuation. A rule that has not been replayed is a guess.
-
-```bash
+```sh
 npm test
+node bin/laconia.mjs lint README.md --format document
 ```
 
-27 tests. CI runs them on Linux, macOS and Windows across Node 18, 20 and 22,
-and asserts that the docs pass their own linter, because a tool that cannot keep
-its own README clean has no business shipping.
+Tests exercise masking, effective budgets, config fallback, CLI options, hook
+continuations, installation idempotence, peer preservation, transcript parsing
+and comparable reports. CI declares Node 18/20/22 across Linux, macOS and Windows;
+a declared matrix is not evidence that hosted runners executed successfully.
 
-This README passes its own linter. So does the skill file and the voice contract.
+`scripts/evaluate.mjs` is an opt-in comparison using the user's existing Claude
+and Codex CLIs. It runs writing fixtures with ambient customizations disabled,
+retains the agents' core instructions and saves responses locally. It is not
+part of the test suite and consumes the user's normal model allowance. Supply
+`--claude`, `--codex`, `--old-voice` and `--output`. Read and judge the answers;
+one small comparison does not prove a general quality improvement.
 
-## License
+Plugin behavior was checked against [Claude output styles](https://code.claude.com/docs/en/output-styles),
+[Claude hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)
+and [Codex packaging](https://developers.openai.com/plugins/build/plugins).
 
-MIT
+MIT licensed.

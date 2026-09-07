@@ -1,36 +1,30 @@
 {
   "$schema": "./config.schema.json",
-  "$comment": "Shipped defaults. Your copy lives at ~/.laconia/config.json and is re-read every turn, so edits take effect without a restart. Anything you omit falls back to this file.",
-
-  "mode": "block",
-  "$mode": "block = make the model send a corrected reply after a violating one. advisory = log only, never interrupt. off = disable the gate (the voice contract stays on).",
-  "$modeAndStreaming": "READ THIS BEFORE CHOOSING. block does NOT hide the violating reply in a client that streams tokens to the screen as they arrive, and Claude Code's terminal streams. A Stop hook cannot fire until the reply is finished, by which point it is already rendered and nothing can retract it, so the correction appears as a SECOND message beneath the first. The last word is clean; the reader saw both. In a client that buffers a whole reply before displaying it, block is a true suppression. Pick block if what matters is that the final answer is clean, for instance because it gets copied elsewhere or fed to another tool, and if you accept reading a violating turn twice. Pick advisory if what matters is reading each reply exactly once, and you would rather fix the rate at source. Either way the ledger records everything, so `laconia report` is unaffected. Measured on one real week before this was understood: 549 replies, 95 blocked, 90 of those on em dashes alone.",
-
-  "blockRules": ["em-dash", "inline-header-bullet", "emoji"],
-  "$blockRules": "Only mechanically unambiguous rules belong here. Judgment rules like length and altitude stay advisory and are carried by the voice contract instead.",
-
+  "$comment": "Personal overrides live in ~/.laconia/config.json. Invalid configuration becomes advisory with browser restrictions disabled.",
+  "mode": "advisory",
+  "blockRules": [
+    "em-dash",
+    "inline-header-bullet",
+    "emoji"
+  ],
   "circuitBreaker": {
-    "maxBlocksPerSession": 5,
-    "$comment": "After this many blocks in one session, Laconia downgrades itself to advisory for the rest of it and says so once. A bad rule cannot become a loop of nagging."
+    "maxBlocksPerSession": 2
   },
-
   "lint": {
     "wordBudget": 150,
     "wordBudgetDepth": 600,
     "maxBoldSpans": 2,
     "boldPer100Words": 1.2,
-    "headerFreeUnder": 400
+    "headerFreeUnder": 400,
+    "disabledRules": [],
+    "format": "chat"
   },
-
   "browserFirst": {
     "enabled": false,
     "denyWebFetch": true,
-    "denyWebSearch": true,
-    "$comment": "Off by default because it is a strong opinion, not a writing rule. Turn it on if you want agents pushed to a real browser (Playwright MCP, Claude in Chrome) instead of WebFetch, whose output is a small model's summary of a stripped page and fails quietly. Claude Code only: Codex web search is a hosted tool that hooks cannot intercept."
+    "denyWebSearch": true
   },
-
   "ledger": {
-    "enabled": true,
-    "$comment": "One JSONL line per turn-ending reply at ~/.laconia/ledger.jsonl. Local only, never uploaded. This is what `laconia report` reads."
+    "enabled": true
   }
 }
