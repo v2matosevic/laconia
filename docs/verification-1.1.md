@@ -72,3 +72,38 @@ Native Codex plugin hooks still require the user's normal trust review. New
 voice instructions reach new sessions; existing sessions are not restarted by
 Laconia. Package-source verification, actual local activation and publication
 are separate states.
+
+## Session wrap, 2026-09-08
+
+Implementation is complete and delivered on GitHub `master` at
+`fc2aa5edeaf5a85010fc2d2ff270297cc51a11f1` (version 1.1.0). The repository was
+clean before this documentation-only wrap. No runtime changes, model runs,
+configuration updates or repeated test suite were needed during the wrap.
+
+The local Claude source install and Codex durable runtime were refreshed during
+implementation. The final implementation check confirmed unrelated global
+instructions and hook handlers were preserved. On the wrap check, the generated
+Codex AGENTS block still matched the source and personal preferences, the console
+skill was present, and advisory mode was unchanged. The ledger now contains
+version 1.1.0 Stop records for both Claude and Codex. This confirms observed
+execution, not blanket trust across every agent profile or future hook change.
+
+Fresh-session pickup:
+
+1. Read this record and the console skill at `skills/laconia/SKILL.md`.
+2. Use `node bin/laconia.mjs check` for configuration drift. Review `/hooks` only
+   if the actual Codex profile reports a new or changed untrusted definition;
+   do not ask the user to approve an already trusted hook again.
+3. Keep private evidence under `~/.laconia/evals/2026-09-08/`. It includes the
+   initial comparison, unsuccessful Claude revisions, final handoff, native
+   plugin/context probes and package inventory. The initial review is
+   `~/.laconia/review-2026-09-08.md`.
+4. Preserve backups under `~/.laconia/backups/2026-09-08-before-1.1/` and normal
+   `.laconia-bak` files. Restore only the relevant owned changes after checking
+   for newer user or peer edits, never overwrite whole global configs blindly.
+
+No npm publication, native macOS/Linux verification or statistically supported
+long-term quality claim is recorded. These limits do not reopen the completed
+implementation. Further work should start from an actual finding or new brief.
+All evaluation subprocesses completed; no Laconia dev server or worker was left
+running. Cross-project finding `i-6b6904c6` was resolved with this implementation.
